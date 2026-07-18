@@ -4,8 +4,8 @@ import { Button } from "../../components/ui/Button";
 import Upload from "../../components/Upload";
 import type { Route } from "./+types/home";
 import { ArrowRight, ArrowUpRight, Clock, Layers } from "lucide-react";
-import { useState } from "react";
-import { createProject } from "../../lib/puter.action";
+import { useState, useRef, useEffect } from "react";
+import { createProject, getProjects } from "../../lib/puter.action";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -17,31 +17,52 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<DesignItem[]>([]);
+  const isCreatingProjectRef = useRef(false);
 
   const handleUploadComplete = async (base64image: string) => {
-    const newId = Date.now().toString();
-    const name = `Residence ${newId}`;
-    const newItem = {
-      id: newId,
-      name,
-      sourceImage: base64image,
-      renderedImage: undefined,
-      timestamp: Date.now(),
-    };
-    const saved = await createProject({ item: newItem, visibility: "private" });
-    if (!saved) {
-      console.error("Failed to crete project");
-      return false;
-    }
-    setProjects((prev) => [saved, ...prev]);
-    navigate(`/visualizer/${newId}`, {
-      state: {
-        initialImage: saved.sourceImage,
-        initialRender: saved.renderedImage || null,
+    try {
+      if (isCreatingProjectRef.current) return false;
+      isCreatingProjectRef.current = true;
+      const newId = Date.now().toString();
+      const name = `Residence ${newId}`;
+      const newItem = {
+        id: newId,
         name,
-      },
-    });
+        sourceImage: base64image,
+        renderedImage: undefined,
+        timestamp: Date.now(),
+      };
+      const saved = await createProject({
+        item: newItem,
+        visibility: "private",
+      });
+      if (!saved) {
+        console.error("Failed to crete project");
+        return false;
+      }
+      setProjects((prev) => [saved, ...prev]);
+      navigate(`/visualizer/${newId}`, {
+        state: {
+          initialImage: saved.sourceImage,
+          initialRender: saved.renderedImage || null,
+          name,
+        },
+      });
+
+      return true;
+    } finally {
+      isCreatingProjectRef.current = false;
+    }
   };
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const items = await getProjects();
+      setProjects(items!);
+    };
+
+    fetchProjects()
+  }, [])
   return (
     <div className="home">
       <Navbar />
@@ -92,9 +113,9 @@ export default function Home() {
           <div className="projects-grid">
             {projects.map(
               ({ id, name, renderedImage, sourceImage, timestamp }) => (
-                <div key={id} className="project-card group">
+                <div key={id} className="project-card group" onClick={() => navigate(`/visualizer/${id}`)}>
                   <div className="preview">
-                    <img src={renderedImage  || sourceImage} alt="project" />
+                    <img src={renderedImage || sourceImage} alt="project" />
                     <div className="badge">
                       <span>Community</span>
                     </div>
