@@ -2,6 +2,8 @@ import { CheckCircle2, ImageIcon, UploadIcon } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router";
 import {
+  ACCEPTED_UPLOAD_MIME_TYPES,
+  MAX_UPLOAD_SIZE_BYTES,
   PROGRESS_INTERVAL_MS,
   PROGRESS_STEP,
   REDIRECT_DELAY_MS,
@@ -18,16 +20,24 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
 
   const intervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const readerRef = useRef<FileReader | null>(null);
   const { isSignedIn } = useOutletContext<AuthContext>();
 
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
 
       if (timeoutRef.current) {
         window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
+      if (readerRef.current) {
+        readerRef.current.abort();
+        readerRef.current = null;
       }
     };
   }, []);
@@ -43,13 +53,39 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
       return;
     }
 
+    if (
+      !ACCEPTED_UPLOAD_MIME_TYPES.includes(selectedFile.type) ||
+      selectedFile.size > MAX_UPLOAD_SIZE_BYTES
+    ) {
+      return;
+    }
+
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    if (readerRef.current) {
+      readerRef.current.abort();
+    }
+
     setFile(selectedFile);
     setProgress(0);
     setIsDragging(false);
 
     const reader = new FileReader();
+    readerRef.current = reader;
 
     reader.onload = () => {
+      if (readerRef.current !== reader) {
+        return;
+      }
+
       const result = reader.result;
 
       if (typeof result !== "string") {
@@ -63,6 +99,8 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current);
       }
+
+      readerRef.current = null;
 
       intervalRef.current = window.setInterval(() => {
         setProgress((currentProgress) => {
@@ -91,6 +129,11 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
     };
 
     reader.onerror = () => {
+      if (readerRef.current !== reader) {
+        return;
+      }
+
+      readerRef.current = null;
       setFile(null);
       setProgress(0);
     };
@@ -154,7 +197,7 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
                 ? "Click to upload or just drag and drop"
                 : "Sign in or Sign up with puter to upload"}
             </p>
-            <p className="help">Maximum file size 50MB</p>
+            <p className="help">Maximum file size 10MB</p>
           </div>
         </div>
       ) : (
