@@ -10,7 +10,7 @@ import {
 } from "../lib/constants";
 
 type UploadProps = {
-  onComplete?: (base64: string) => void;
+  onComplete?: (base64: string) => boolean | void | Promise<boolean | void>;
 };
 
 const Upload = ({ onComplete = () => {} }: UploadProps) => {
@@ -113,7 +113,17 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
             }
 
             timeoutRef.current = window.setTimeout(() => {
-              onComplete(result);
+              Promise.resolve(onComplete(result))
+                .then((success) => {
+                  if (success === false) {
+                    setFile(null);
+                    setProgress(0);
+                  }
+                })
+                .catch(() => {
+                  setFile(null);
+                  setProgress(0);
+                });
             }, REDIRECT_DELAY_MS);
 
             return 100;

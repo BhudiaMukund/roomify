@@ -33,11 +33,11 @@ export default function Home() {
       console.error("Failed to crete project");
       return false;
     }
-    setProjects((prev) => [newItem, ...prev]);
+    setProjects((prev) => [saved, ...prev]);
     navigate(`/visualizer/${newId}`, {
       state: {
         initialImage: saved.sourceImage,
-        initialRendered: saved.renderedImage || null,
+        initialRender: saved.renderedImage || null,
         name,
       },
     });
@@ -94,7 +94,7 @@ export default function Home() {
               ({ id, name, renderedImage, sourceImage, timestamp }) => (
                 <div key={id} className="project-card group">
                   <div className="preview">
-                    <img src={renderedImage || sourceImage} alt="project" />
+                    <img src={renderedImage  || sourceImage} alt="project" />
                     <div className="badge">
                       <span>Community</span>
                     </div>
@@ -104,7 +104,11 @@ export default function Home() {
                       <h3>{name}</h3>
                       <div className="meta">
                         <Clock size={12} />
-                        <span>{new Date(timestamp).toLocaleDateString()}</span>
+                        <span>
+                          {new Date(timestamp).toLocaleDateString("en-US", {
+                            timeZone: "UTC",
+                          })}
+                        </span>
                         <span>By JSM</span>
                       </div>
                     </div>

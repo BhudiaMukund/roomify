@@ -3,7 +3,7 @@ import {
   getOrCreateHostingConfig,
   uploadImageToHosting,
 } from "./puter.hosting";
-import { isHostedUrl } from "./utils";
+import { getProjectKey, isHostedUrl } from "./utils";
 
 export const signIn = async () => await puter.auth.signIn();
 export const signOut = () => puter.auth.signOut();
@@ -15,8 +15,18 @@ export const getCurrentUser = async () => {
   }
 };
 
+export const getProject = async (id: string): Promise<DesignItem | null> => {
+  try {
+    return ((await puter.kv.get(getProjectKey(id))) as DesignItem) || null;
+  } catch (error) {
+    console.warn(`Failed to load project ${id}`, error);
+    return null;
+  }
+};
+
 export const createProject = async ({
   item,
+  visibility,
 }: CreateProjectParams): Promise<DesignItem | null | undefined> => {
   const projectId = item.id;
   const hosting = await getOrCreateHostingConfig();
@@ -61,13 +71,15 @@ export const createProject = async ({
     ...rest
   } = item;
 
-  const payload = {
+  const payload: DesignItem = {
     ...rest,
     sourceImage: resolvedSource,
     renderedImage: resolvedRender,
+    isPublic: visibility === "public",
   };
 
   try {
+    await puter.kv.set(getProjectKey(payload.id), payload);
     return payload;
   } catch (error) {
     console.log("Failed to save project", error);
