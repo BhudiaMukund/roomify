@@ -92,10 +92,6 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
         return;
       }
 
-      const base64 = result.includes("base64,")
-        ? result.split("base64,")[1]
-        : result;
-
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current);
       }
@@ -117,7 +113,7 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
             }
 
             timeoutRef.current = window.setTimeout(() => {
-              onComplete(base64);
+              onComplete(result);
             }, REDIRECT_DELAY_MS);
 
             return 100;
