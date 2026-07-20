@@ -130,7 +130,7 @@ export default function Home() {
                             timeZone: "UTC",
                           })}
                         </span>
-                        <span>By JSM</span>
+                        <span>By You</span>
                       </div>
                     </div>
                     <div className="arrow">

@@ -83,6 +83,16 @@ export const createProject = async ({
           url: item.renderedImage,
           projectId,
           label: "rendered",
+        }).catch((error) => {
+          // Distinguish this from a "no render yet" no-op: a render was
+          // generated but couldn't be persisted, so the caller needs to
+          // know the save didn't fully succeed rather than silently
+          // getting back a project with no renderedImage.
+          throw new Error(
+            `Render was generated but failed to save: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
         })
       : null;
 

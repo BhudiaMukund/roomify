@@ -13,7 +13,7 @@ type HostingConfig = { subdomain: string };
 type HostedAsset = { url: string };
 
 export const getOrCreateHostingConfig =
-  async (): Promise<HostingConfig | null> => {
+  async (): Promise<HostingConfig> => {
     const existing = (await puter.kv.get(
       HOSTING_CONFIG_KEY,
     )) as HostingConfig | null;
@@ -32,8 +32,8 @@ export const getOrCreateHostingConfig =
       await puter.kv.set(HOSTING_CONFIG_KEY, record);
       return record;
     } catch (error) {
-      console.warn(`Could not find subdomain: ${error}`);
-      return null;
+      console.error(`Failed to create hosting subdomain: ${error}`);
+      throw error;
     }
   };
 
@@ -43,6 +43,7 @@ export const uploadImageToHosting = async ({
   projectId,
   label,
 }: StoreHostedImageParams): Promise<HostedAsset | null> => {
+  // Nothing to upload - not a failure, just a no-op.
   if (!hosting || !url) return null;
 
   if (isHostedUrl(url)) return { url };
@@ -55,7 +56,11 @@ export const uploadImageToHosting = async ({
           )
         : await fetchBlobFromUrl(url);
 
-    if (!resolved) return null;
+    if (!resolved) {
+      throw new Error(
+        `Could not resolve image data for "${label}" (projectId=${projectId})`,
+      );
+    }
 
     const contentType = resolved.contentType || resolved.blob.type || "";
     const ext = getImageExtension(contentType, url);
@@ -71,9 +76,15 @@ export const uploadImageToHosting = async ({
     await puter.fs.write(filePath, uploadFile);
     const hostedUrl = getHostedUrl({ subdomain: hosting.subdomain }, filePath);
 
-    return hostedUrl ? { url: hostedUrl } : null;
+    if (!hostedUrl) {
+      throw new Error(
+        `Failed to build hosted URL for "${label}" (projectId=${projectId})`,
+      );
+    }
+
+    return { url: hostedUrl };
   } catch (error) {
-    console.warn(`Failed to store hosted image: ${error}`);
-    return null;
+    console.error(`Failed to store hosted "${label}" image: ${error}`);
+    throw error;
   }
 };

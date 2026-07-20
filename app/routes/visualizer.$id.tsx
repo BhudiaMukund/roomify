@@ -31,6 +31,7 @@ const VisualizerId = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   useEffect(() => {
     activeIdRef.current = id;
@@ -53,38 +54,52 @@ const VisualizerId = () => {
     const requestId = id;
     try {
       setIsProcessing(true);
+      setGenerationError(null);
       const result = await generate3DView({ sourceImage: item.sourceImage });
       if (activeIdRef.current !== requestId) return;
 
-      if (result.renderedImage) {
-        setCurrentImage(result.renderedImage);
-        const updatedItem = {
-          ...item,
-          renderedImage: result.renderedImage,
-          renderedPath: result.renderedPath,
-          timestamp: Date.now(),
-          ownerId: item.ownerId ?? userId ?? null,
-          isPublic: item.isPublic ?? false,
-        };
+      if (!result.renderedImage) {
+        throw new Error("The AI render didn't come back — no image was returned.");
+      }
 
-        const saved = await createProject({
-          item: updatedItem,
-          visibility: "private",
-        });
-        if (activeIdRef.current !== requestId) return;
+      setCurrentImage(result.renderedImage);
+      const updatedItem = {
+        ...item,
+        renderedImage: result.renderedImage,
+        renderedPath: result.renderedPath,
+        timestamp: Date.now(),
+        ownerId: item.ownerId ?? userId ?? null,
+        isPublic: item.isPublic ?? false,
+      };
 
-        if (saved) {
-          setProject(saved);
-          setCurrentImage(saved.renderedImage || result.renderedImage);
-        }
+      const saved = await createProject({
+        item: updatedItem,
+        visibility: "private",
+      });
+      if (activeIdRef.current !== requestId) return;
+
+      if (saved) {
+        setProject(saved);
+        setCurrentImage(saved.renderedImage || result.renderedImage);
       }
     } catch (error) {
       console.error("Generation failed: ", error);
+      if (activeIdRef.current === requestId) {
+        setGenerationError(
+          error instanceof Error
+            ? error.message
+            : "Failed to generate or save the render.",
+        );
+      }
     } finally {
       if (activeIdRef.current === requestId) {
         setIsProcessing(false);
       }
     }
+  };
+
+  const handleRetryGeneration = () => {
+    if (project) void runGeneration(project);
   };
 
   useEffect(() => {
@@ -189,6 +204,22 @@ const VisualizerId = () => {
                   <span className="subtitle">
                     Generating your 3D visualisation
                   </span>
+                </div>
+              </div>
+            )}
+            {generationError && !isProcessing && (
+              <div className="render-overlay">
+                <div className="rendering-card">
+                  <span className="title">Render failed</span>
+                  <span className="subtitle">{generationError}</span>
+                  <Button
+                    size="sm"
+                    onClick={handleRetryGeneration}
+                    className="mt-3"
+                  >
+                    <RefreshCcw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
                 </div>
               </div>
             )}
