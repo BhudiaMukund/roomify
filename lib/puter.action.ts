@@ -6,6 +6,38 @@ import {
 import { getProjectKey, isHostedUrl } from "./utils";
 import { PUTER_WORKER_URL } from "./constants";
 
+// Local fallback cache so previously loaded projects stay visible if a
+// live fetch fails (e.g. out of Puter credits, offline, rate-limited).
+const PROJECTS_LIST_CACHE_KEY = "roomify_cache_projects_list";
+const projectCacheKey = (id: string) => `roomify_cache_project_${id}`;
+
+const readCache = <T>(key: string): T | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeCache = (key: string, value: unknown) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // storage full/unavailable - safe to ignore, cache is best-effort
+  }
+};
+
+const cacheProject = (project: DesignItem) => {
+  writeCache(projectCacheKey(project.id), project);
+
+  const projects = readCache<DesignItem[]>(PROJECTS_LIST_CACHE_KEY) ?? [];
+  const next = [project, ...projects.filter((p) => p.id !== project.id)];
+  writeCache(PROJECTS_LIST_CACHE_KEY, next);
+};
+
 export const signIn = async () => await puter.auth.signIn();
 export const signOut = () => puter.auth.signOut();
 export const getCurrentUser = async () => {
@@ -101,17 +133,25 @@ export const createProject = async ({
     }
 
     const data = (await response.json()) as { project?: DesignItem | null };
+    if (data?.project) cacheProject(data.project);
     return data?.project ?? null;
   } catch (error) {
     console.log("Failed to save project", error);
   }
 };
 
-export const getProjects = async () => {
+export const getProjects = async (): Promise<DesignItem[]> => {
+  const cached = readCache<DesignItem[]>(PROJECTS_LIST_CACHE_KEY) ?? [];
+
   if (!PUTER_WORKER_URL) {
     console.warn("Missing VITE_PUTER_WORKER_URL; skip history fetch;");
-    return [];
+    return cached;
   }
+
+  // Skip the remote fetch when signed out. puter.workers.exec forces its
+  // own sign-in popup the moment it's called with no auth token, which
+  // would otherwise hijack the page on load before the user does anything.
+  if (!puter.auth.isSignedIn()) return cached;
 
   try {
     const response = await puter.workers.exec(
@@ -122,26 +162,33 @@ export const getProjects = async () => {
     );
 
     if (!response.ok) {
+      // Fetch failed (e.g. out of credits, auth expired) - keep showing
+      // whatever was last successfully loaded instead of an empty gallery.
       console.error("Failed to fetch history: ", await response.text());
-      return [];
+      return cached;
     }
     const data = (await response.json()) as { projects?: DesignItem[] | null };
+    const projects = Array.isArray(data?.projects) ? data.projects : [];
 
-    return Array.isArray(data?.projects) ? data?.projects : [];
+    writeCache(PROJECTS_LIST_CACHE_KEY, projects);
+    return projects;
   } catch (error) {
-    console.error("Failed to get projects: ", error);
-    return [];
+    console.error("Failed to get projects, showing cached results: ", error);
+    return cached;
   }
 };
 
 
 export const getProjectById = async ({ id }: { id: string }) => {
+  const cached = readCache<DesignItem>(projectCacheKey(id));
+
   if (!PUTER_WORKER_URL) {
     console.warn("Missing VITE_PUTER_WORKER_URL; skipping project fetch.");
-    return null;
+    return cached ?? null;
   }
 
-  console.log("Fetching project with ID:", id);
+  // Skip the remote fetch when signed out - see getProjects() for why.
+  if (!puter.auth.isSignedIn()) return cached ?? null;
 
   try {
     const response = await puter.workers.exec(
@@ -149,22 +196,24 @@ export const getProjectById = async ({ id }: { id: string }) => {
       { method: "GET" },
     );
 
-    console.log("Fetch project response:", response);
-
     if (!response.ok) {
-      console.error("Failed to fetch project:", await response.text());
-      return null;
+      // A real 404 means the project genuinely doesn't exist - trust it.
+      // Any other failure (e.g. out of credits, auth hiccup) should keep
+      // showing the last rendered image for this project instead of
+      // clearing it.
+      if (response.status === 404) return null;
+      console.error("Failed to fetch project, showing cached copy:", await response.text());
+      return cached ?? null;
     }
 
     const data = (await response.json()) as {
       project?: DesignItem | null;
     };
 
-    console.log("Fetched project data:", data);
-
-    return data?.project ?? null;
+    if (data?.project) cacheProject(data.project);
+    return data?.project ?? cached ?? null;
   } catch (error) {
-    console.error("Failed to fetch project:", error);
-    return null;
+    console.error("Failed to fetch project, showing cached copy:", error);
+    return cached ?? null;
   }
 };
