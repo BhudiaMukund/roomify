@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import Navbar from "../../components/Navbar";
 import { Button } from "../../components/ui/Button";
 import Upload from "../../components/Upload";
@@ -58,7 +58,7 @@ export default function Home() {
   useEffect(() => {
     const fetchProjects = async () => {
       const items = await getProjects();
-      setProjects(items!);
+      setProjects(items);
     };
 
     fetchProjects()
@@ -113,7 +113,7 @@ export default function Home() {
           <div className="projects-grid">
             {projects.map(
               ({ id, name, renderedImage, sourceImage, timestamp }) => (
-                <div key={id} className="project-card group" onClick={() => navigate(`/visualizer/${id}`)}>
+                <Link key={id} to={`/visualizer/${id}`} className="project-card group">
                   <div className="preview">
                     <img src={renderedImage || sourceImage} alt="project" />
                     <div className="badge">
@@ -137,7 +137,7 @@ export default function Home() {
                       <ArrowUpRight size={18} />
                     </div>
                   </div>
-                </div>
+                </Link>
               ),
             )}
           </div>

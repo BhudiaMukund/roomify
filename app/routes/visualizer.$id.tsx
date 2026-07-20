@@ -20,6 +20,7 @@ const VisualizerId = () => {
   const { userId } = useOutletContext<AuthContext>();
 
   const hasInitialGenerated = useRef(false);
+  const activeIdRef = useRef(id);
 
   const [project, setProject] = useState<DesignItem | null>(null);
   const [isProjectLoading, setIsProjectLoading] = useState(true);
@@ -27,13 +28,19 @@ const VisualizerId = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
 
+  useEffect(() => {
+    activeIdRef.current = id;
+  }, [id]);
+
   const handleBack = () => navigate("/");
 
   const runGeneration = async (item: DesignItem) => {
     if (!id || !item.sourceImage) return;
+    const requestId = id;
     try {
       setIsProcessing(true);
       const result = await generate3DView({ sourceImage: item.sourceImage });
+      if (activeIdRef.current !== requestId) return;
 
       if (result.renderedImage) {
         setCurrentImage(result.renderedImage);
@@ -50,6 +57,7 @@ const VisualizerId = () => {
           item: updatedItem,
           visibility: "private",
         });
+        if (activeIdRef.current !== requestId) return;
 
         if (saved) {
           setProject(saved);
@@ -59,7 +67,9 @@ const VisualizerId = () => {
     } catch (error) {
       console.error("Generation failed: ", error);
     } finally {
-      setIsProcessing(false);
+      if (activeIdRef.current === requestId) {
+        setIsProcessing(false);
+      }
     }
   };
 
