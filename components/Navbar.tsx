@@ -1,9 +1,10 @@
 import { Box } from "lucide-react";
 import React from "react";
 import { Button } from "./ui/Button";
-import { useOutletContext } from "react-router";
+import { useNavigate, useOutletContext } from "react-router";
 
 const Navbar = () => {
+  const navigate = useNavigate()
   const { isSignedIn, userName, signIn, signOut } =
     useOutletContext<AuthContext>();
   const handleAuthClick = async () => {
@@ -25,7 +26,7 @@ const Navbar = () => {
     <header className="navbar">
       <nav className="inner">
         <div className="left">
-          <div className="brand">
+          <div className="brand" onClick={() => navigate('/')}>
             <Box className="logo" />
             <span className="name">Roomify</span>
           </div>
