@@ -1,87 +1,120 @@
-# Welcome to React Router!
+# Roomify
 
-A modern, production-ready template for building full-stack React applications using React Router.
+> AI-powered architectural visualization — transform flat 2D floor plans into photorealistic 3D renders in seconds.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![Puter](https://img.shields.io/badge/Puter-A855F7?style=for-the-badge&logoColor=white)
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [Acknowledgements](#acknowledgements)
+
+## Overview
+
+Roomify is a web app that uses generative AI to turn 2D architectural floor plans into photorealistic 3D visualizations. Upload a sketch, and the app renders a 3D interpretation you can view, compare against the original, save to a personal gallery, and optionally share to a public community feed.
+
+The project is built on [Puter](https://puter.com) as its cloud backend, which handles serverless functions, permanent file hosting, key-value storage, and access to hosted AI models — all callable directly from the frontend, so there's no separate server to run.
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- **2D-to-3D rendering** — converts flat floor plans into photorealistic 3D renders using AI image models.
+- **Side-by-side comparison** — view the source sketch and its AI-generated render together.
+- **Personal gallery** — every render is saved with its metadata, so your history is always one click away.
+- **Persistent hosting** — uploads and outputs get permanent public URLs via Puter file storage.
+- **Community feed** — share projects publicly and browse renders from other users.
+- **Privacy controls** — toggle each project between public and private.
+- **Export** — download finished renders for use in presentations and other workflows.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | [React](https://react.dev/) + [React Router](https://reactrouter.com/) |
+| Language | [TypeScript](https://www.typescriptlang.org/) |
+| Build tool | [Vite](https://vitejs.dev/) |
+| Styling | [Tailwind CSS](https://tailwindcss.com/) |
+| Cloud / backend | [Puter](https://puter.com) + [Puter.js SDK](https://docs.puter.com/) |
+| Image comparison | [react-compare-slider](https://github.com/nerdyman/stuff/tree/main/packages/react-compare-slider) |
+| Icons | [Lucide](https://lucide.dev/) |
+| AI model | Gemini 2.5 Flash Image Preview (Google), served through Puter's `ai.txt2img` |
 
 ## Getting Started
 
+### Prerequisites
+
+Make sure you have the following installed:
+
+- [Git](https://git-scm.com/)
+- [Node.js](https://nodejs.org/en) (LTS recommended)
+- npm (bundled with Node.js)
+
 ### Installation
 
-Install the dependencies:
-
 ```bash
+# Clone the repository
+git clone https://github.com/BhudiaMukund/roomify.git
+cd roomify
+
+# Install dependencies
 npm install
 ```
 
-### Development
-
-Start the development server with HMR:
+### Running Locally
 
 ```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+Then open [http://localhost:5173](http://localhost:5173) in your browser.
 
-## Building for Production
+Sign-in is handled entirely by Puter — click sign in and authenticate through the Puter popup, no local account system is involved.
 
-Create a production build:
+## Environment Variables
 
-```bash
-npm run build
+Create a `.env.local` file in the project root:
+
+```env
+VITE_PUTER_WORKER_URL=https://your-worker-subdomain.puter.work/
 ```
 
-## Deployment
+`VITE_PUTER_WORKER_URL` points to the [Puter Worker](https://docs.puter.com/) ([lib/puter.worker.js](lib/puter.worker.js)) that exposes the `/api/projects/save`, `/api/projects/list`, and `/api/projects/get` endpoints backing the gallery and sharing features. Deploy that worker to your own Puter account and use the URL it gives you.
 
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
+## Project Structure
 
 ```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
+roomify/
+├── app/                    # React Router routes and root layout
+│   ├── root.tsx            # App shell, Puter auth state
+│   └── routes/
+│       ├── home.tsx        # Landing page, upload, project grid
+│       └── visualizer.$id.tsx  # Compare, share, export a single render
+├── components/
+│   ├── Navbar.tsx
+│   ├── Upload.tsx
+│   └── ui/Button.tsx
+├── lib/
+│   ├── ai.action.ts         # Gemini image generation via Puter
+│   ├── puter.action.ts      # Auth, project CRUD
+│   ├── puter.hosting.ts     # Permanent file hosting on Puter
+│   ├── puter.worker.js      # Puter Worker: project save/list/get API
+│   ├── share.ts             # Public share page generation
+│   ├── constants.ts
+│   └── utils.ts
+├── public/                  # Static assets
+├── Dockerfile
+├── vite.config.ts
+└── package.json
 ```
 
-## Styling
+## Acknowledgements
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+This project was built following the [Roomify tutorial](https://www.youtube.com/@javascriptmastery/videos) by JavaScript Mastery. Credit to the original walkthrough for the concept and architecture.
