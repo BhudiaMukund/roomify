@@ -59,18 +59,14 @@ const VisualizerId = () => {
     try {
       setShareStatus("saving");
 
-      let shareUrl = project.isPublic ? project.publicPath : null;
-
-      if (!shareUrl) {
-        const itemToShare = { ...project, renderedImage: currentImage };
-        const saved = await shareProject(itemToShare, userName);
-        if (!saved) {
-          setShareStatus("idle");
-          return;
-        }
-        setProject(saved);
-        shareUrl = saved.publicPath ?? null;
+      const itemToShare = { ...project, renderedImage: currentImage };
+      const saved = await shareProject(itemToShare, userName);
+      if (!saved) {
+        setShareStatus("idle");
+        return;
       }
+      setProject(saved);
+      const shareUrl = saved.publicPath ?? null;
 
       if (shareUrl && navigator.clipboard) {
         await navigator.clipboard.writeText(shareUrl);
