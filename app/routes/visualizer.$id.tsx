@@ -11,7 +11,9 @@ import {
   getProjectById,
 } from "../../lib/puter.action";
 import { generate3DView } from "../../lib/ai.action";
-import { Box, X, Download, Share2, RefreshCcw } from "lucide-react";
+import { shareProject, unshareProject } from "../../lib/share";
+import { SHARE_STATUS_RESET_DELAY_MS } from "../../lib/constants";
+import { Box, X, Download, Share2, Check, Link2Off, RefreshCcw } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import {
   ReactCompareSlider,
@@ -21,7 +23,7 @@ import {
 const VisualizerId = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userId } = useOutletContext<AuthContext>();
+  const { userId, userName } = useOutletContext<AuthContext>();
 
   const hasInitialGenerated = useRef(false);
   const activeIdRef = useRef(id);
@@ -31,6 +33,9 @@ const VisualizerId = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
+
+  const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
+  const [isUnsharing, setIsUnsharing] = useState(false);
 
   useEffect(() => {
     activeIdRef.current = id;
@@ -46,6 +51,51 @@ const VisualizerId = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleShare = async () => {
+    if (!project || !currentImage || shareStatus === "saving") return;
+
+    try {
+      setShareStatus("saving");
+
+      let shareUrl = project.isPublic ? project.publicPath : null;
+
+      if (!shareUrl) {
+        const itemToShare = { ...project, renderedImage: currentImage };
+        const saved = await shareProject(itemToShare, userName);
+        if (!saved) {
+          setShareStatus("idle");
+          return;
+        }
+        setProject(saved);
+        shareUrl = saved.publicPath ?? null;
+      }
+
+      if (shareUrl && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+
+      setShareStatus("done");
+      window.setTimeout(() => setShareStatus("idle"), SHARE_STATUS_RESET_DELAY_MS);
+    } catch (error) {
+      console.error("Share failed:", error);
+      setShareStatus("idle");
+    }
+  };
+
+  const handleUnshare = async () => {
+    if (!project || isUnsharing) return;
+
+    try {
+      setIsUnsharing(true);
+      const updated = await unshareProject(project);
+      if (updated) setProject(updated);
+    } catch (error) {
+      console.error("Unshare failed:", error);
+    } finally {
+      setIsUnsharing(false);
+    }
   };
 
   const runGeneration = async (item: DesignItem) => {
@@ -161,10 +211,41 @@ const VisualizerId = () => {
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
-              <Button size="sm" onClick={() => {}} className="share">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
+              <Button
+                size="sm"
+                onClick={handleShare}
+                className="share"
+                disabled={!currentImage || shareStatus === "saving"}
+              >
+                {shareStatus === "done" ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Link Copied
+                  </>
+                ) : shareStatus === "saving" ? (
+                  <>
+                    <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+                    Sharing...
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    {project?.isPublic ? "Copy Link" : "Share"}
+                  </>
+                )}
               </Button>
+              {project?.isPublic && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUnshare}
+                  className="unshare"
+                  disabled={isUnsharing}
+                  title="Stop sharing this project"
+                >
+                  <Link2Off className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
           <div className={`render-area ${isProcessing ? "is-processing" : ""}`}>

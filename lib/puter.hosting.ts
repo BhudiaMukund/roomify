@@ -37,6 +37,51 @@ export const getOrCreateHostingConfig =
     }
   };
 
+export const uploadTextToHosting = async ({
+  hosting,
+  projectId,
+  fileName,
+  content,
+  contentType = "text/html",
+}: {
+  hosting: HostingConfig | null;
+  projectId: string;
+  fileName: string;
+  content: string;
+  contentType?: string;
+}): Promise<HostedAsset | null> => {
+  if (!hosting || !projectId) return null;
+
+  try {
+    const dir = `projects/${projectId}`;
+    const filePath = `${dir}/${fileName}`;
+    const file = new File([content], fileName, { type: contentType });
+
+    await puter.fs.mkdir(dir, { createMissingParents: true });
+    await puter.fs.write(filePath, file);
+    const hostedUrl = getHostedUrl({ subdomain: hosting.subdomain }, filePath);
+
+    return hostedUrl ? { url: hostedUrl } : null;
+  } catch (error) {
+    console.warn(`Failed to store hosted file: ${error}`);
+    return null;
+  }
+};
+
+export const deleteHostedFile = async ({
+  projectId,
+  fileName,
+}: {
+  projectId: string;
+  fileName: string;
+}): Promise<void> => {
+  try {
+    await puter.fs.delete(`projects/${projectId}/${fileName}`);
+  } catch (error) {
+    console.warn(`Failed to delete hosted file: ${error}`);
+  }
+};
+
 export const uploadImageToHosting = async ({
   hosting,
   url,
